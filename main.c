@@ -50,7 +50,7 @@ char IntToChar(uint8_t integer_digit)
 	return (char)(((uint8_t)'0')+integer_digit);
 }
 
-void AdcInit()
+void AdcInit(void)
 {
 	ADMUX=0;
 	ADMUX &= ~_BV(REFS1) & ~_BV(REFS0);		// Reference voltage from AREF pin
@@ -64,14 +64,15 @@ void AdcInit()
 	ADCSRA |= _BV(ADSC);					// Free running mode, but needed to first convertion
 	DIDR0 = 0x0F;							// Digital Input Disable Register - PA0-PA4 DI Disabled
 }
-void SetOrigin()
+
+void SetOrigin(void)
 {
 	NORM_MV_VALUES[0] = CURRENT_MV_VALUES[0];
 	NORM_MV_VALUES[1] = CURRENT_MV_VALUES[1];
 	NORM_MV_VALUES[2] = CURRENT_MV_VALUES[2];
 }
 
-void LcdInit()
+void LcdInit(void)
 {
 	hd44780_init();
 	hd44780_outcmd(HD44780_CLR);
@@ -81,7 +82,7 @@ void LcdInit()
 	hd44780_outcmd(HD44780_DISPCTL(1,0,0));
 	hd44780_wait_ready(1);
 }
-void LcdTimerInit()
+void LcdTimerInit(void)
 {
 	/* TIMER2: CS22, CS21, CS20 - DIFFERENT THAN IN TIMER0! ATmega164 datasheet p.156
 	 *  0     0     0   - Timer/Counter2 Disabled
@@ -117,7 +118,7 @@ void LcdGoTo(uint8_t x, uint8_t y)
 	hd44780_outcmd(HD44780_DDADDR(0x40*y+x));	// sends cursor to y line and x position
 	hd44780_wait_ready(1);						// first sign is on 0,0 position
 }
-void LcdCursorOff()
+void LcdCursorOff(void)
 {
 	hd44780_outcmd(HD44780_DISPCTL(1,0,0));
 	hd44780_wait_ready(1);
@@ -279,7 +280,7 @@ volatile unsigned char GPS_RMC_DATE[6];
 volatile uint8_t gps_array_pointer=0;
 volatile uint8_t gps_overwrite_allowed=1;
 volatile uint8_t gps_rmc_valid=0;
-void LcdShowGPSTime()
+void LcdShowGPSTime(void)
 {
 	LcdClear();
 	LcdPutTextP(PSTR("Date: "),0,0);
@@ -301,7 +302,7 @@ void LcdShowGPSTime()
 	LcdPutChar(GPS_RMC_TIME[4]);
 	LcdPutChar(GPS_RMC_TIME[5]);
 }
-void LcdShowGPSPosition()
+void LcdShowGPSPosition(void)
 {
 	LcdClear();
 	LcdPutTextP(PSTR("Lt: "),0,0);
@@ -747,7 +748,7 @@ volatile uint8_t alarm_1st_grade = 0;
 volatile uint8_t alarm_2nd_grade = 0;
 volatile uint8_t alarm_sent = 0;
 volatile unsigned char prevkeys = 0x0F;
-void Key0Pressed(){
+void Key0Pressed(void){
 	if (menu_position == 110)
 	{
 		new_alarm_delay = alarm_delay;
@@ -786,10 +787,10 @@ void Key0Pressed(){
 	else if (menu_position == 200 || menu_position == 300 || menu_position == 400) ;
 	else menu_position = 100;
 }
-void Key0Released(){
+void Key0Released(void){
 
 }
-void Key1Pressed(){
+void Key1Pressed(void){
 	switch (menu_position)
 	{
 		case 200:
@@ -875,10 +876,10 @@ void Key1Pressed(){
 			break;
 	}
 }
-void Key1Released(){
+void Key1Released(void){
 
 }
-void Key2Pressed(){
+void Key2Pressed(void){
 	switch (menu_position)
 	{
 		case 100:
@@ -964,10 +965,10 @@ void Key2Pressed(){
 			break;
 	}
 }
-void Key2Released(){
+void Key2Released(void){
 
 }
-void Key3Pressed(){
+void Key3Pressed(void){
 	if (menu_position == 100 || menu_position == 200 || menu_position == 300
 	   || menu_position == 400) menu_position += 10;
 	else if (menu_position == 210 || menu_position == 220
@@ -1013,10 +1014,10 @@ void Key3Pressed(){
 		menu_position = 421;
 	}
 }
-void Key3Released(){
+void Key3Released(void){
 
 }
-void KeyCancellPressed(){
+void KeyCancellPressed(void){
 	if (menu_position >= 231 && menu_position <= 236)
 	{
 		NEW_X_MG_TRIGGER_VALUES[0] = -100;
@@ -1031,10 +1032,10 @@ void KeyCancellPressed(){
 	alarm_sent = 0;
 	new_alarm_delay = alarm_delay;
 }
-void ReadKeys(){
+void ReadKeys(void){
 	keys = KEYPORT;
 }
-void KeysHandle(){
+void KeysHandle(void){
 	// KEY 0
 	if (bit_is_clear(keys,0) && bit_is_set(prevkeys,0)){
 		prevkeys &= ~_BV(0);
@@ -1081,7 +1082,7 @@ void KeysHandle(){
 	}
 }
 
-int main()
+int main(void)
 {
 	DDRA = 0x00;
 	PORTA |= 0xF0;
