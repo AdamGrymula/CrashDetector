@@ -1,29 +1,33 @@
-/*
- * ----------------------------------------------------------------------------
- * "THE BEER-WARE LICENSE" (Revision 42):
- * <joerg@FreeBSD.ORG> wrote this file.  As long as you retain this notice you
- * can do whatever you want with this stuff. If we meet some day, and you think
- * this stuff is worth it, you can buy me a beer in return.        Joerg Wunsch
- * ----------------------------------------------------------------------------
- *
- * General stdiodemo defines
- *
- * $Id: defines.h,v 1.2.2.1 2009/06/25 20:21:15 joerg_wunsch Exp $
- */
+// Prevents multiple inclusion
 
-/* CPU frequency */
-//#define F_CPU 1000000UL
+#ifndef DEFINES_H
+#define DEFINES_H
 
-/* UART baud rate */
-#define UART_BAUD  9600
+#include "defines_lcd.h"
 
-/* HD44780 LCD port connections */
-#define HD44780_RS C, 6
-#define HD44780_RW C, 5
-#define HD44780_E  C, 4
-/* The data bits have to be in ascending order. */
-#define HD44780_D4 C, 0
+// Reference voltage in mV
+#define VREF 3240
 
-/* Whether to read the busy flag, or fall back to
-   worst-time delays. */
-#define USE_BUSY_BIT 1
+// ... Buttons configuration ...
+#define KEYPORT PINA >> 4
+
+// Definitions of texts for LCD
+#define txt_hello_line0 "MOTORBIKE"
+#define txt_hello_line1 "CRASH DETECTOR"
+#define txt_run_detector "Run Detector"
+#define txt_calibration "Calibration"
+#define txt_gps_data "GPS Data"
+#define txt_gsm_module "GSM Module"
+#define txt_set_the_origin "Set the origin"
+#define txt_run_calibration "Run calibration"
+#define txt_calibration_in_progress "in progress..."
+#define txt_alarm_triggers "Alarm triggers"
+#define txt_alarm_delay "Alarm delay"
+#define txt_gps_data_time "UTC Time"
+#define txt_gps_data_position "Position"
+#define txt_gps_data_invalid "GPS disconnected"
+#define txt_gsm_alarms_receiver "Alarms receiver"
+#define txt_gsm_send_test_sms "Send test SMS"
+#define txt_check_your_inbox "Check your inbox"
+
+#endif // DEFINES_H

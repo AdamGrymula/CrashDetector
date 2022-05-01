@@ -84,7 +84,8 @@ BUILD_DIR = build
 # List C source files here. (C dependencies are automatically generated.)
 SRC =        \
 main.c       \
-hd44780.c
+hd44780.c    \
+buttons.c
 
 
 # List C++ source files here. (C dependencies are automatically generated.)

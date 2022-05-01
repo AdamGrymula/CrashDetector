@@ -13,7 +13,7 @@
  *
  * $Id: hd44780.c,v 1.3.2.1 2009/06/25 20:21:16 joerg_wunsch Exp $
  */
-#include "defines.h"
+#include "defines_lcd.h"
 
 #include <stdbool.h>
 #include <stdint.h>
