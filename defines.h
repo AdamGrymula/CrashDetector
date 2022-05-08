@@ -5,8 +5,19 @@
 
 #include "defines_lcd.h"
 
+// General
+#define TRUE 1
+#define FALSE 0
+
 // Reference voltage in mV
 #define VREF 3240
+
+// Define lengths of GPS data
+#define GPS_DATA_LEN 90
+#define RMC_TIME_LEN 6
+#define RMC_DATE_LEN 6
+#define RMC_LATITUDE_LEN 10
+#define RMC_LONGITUDE_LEN 11
 
 // ... Buttons configuration ...
 #define KEYPORT PINA >> 4

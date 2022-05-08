@@ -22,17 +22,17 @@
 #include <hd44780.h>
 
 #include <buttons.h>
+#include <gps.h>
 
-// Przenieść do innego pliku -- docelowo nie może być main.h
-static int test = 6;
-void SetTest(int val)
-{
-	test = val;
-}
-int GetTest(void)
-{
-	return test;
-}
+
+// -------------- GPS --------------
+unsigned char GPS_RMC_TIME[RMC_TIME_LEN];       	// Used in: LcdShowGPSTime
+unsigned char GPS_RMC_DATE[RMC_DATE_LEN];       	// Used in: LcdShowGPSTime
+unsigned char GPS_RMC_LATITUDE[RMC_LATITUDE_LEN];  	// Used in: LcdShowGPSPosition, SendSMS
+unsigned char GPS_RMC_LONGITUDE[RMC_LONGITUDE_LEN]; // Used in: LcdShowGPSPosition, SendSMS
+uint8_t gps_rmc_valid = FALSE;       				// Used in: LcdShowMenu
+// ---------------------------------
+
 
 volatile uint16_t ADC_CURRENT_MV_VALUES[3];
 uint16_t CURRENT_MV_VALUES[3];
@@ -238,67 +238,8 @@ void LcdShowMeasurement(uint8_t unit, uint8_t fractional_digits)
 	}
 }
 
-void USART0Init(uint16_t ubrr_value)
-{
-	/* Set Baud rate
-	 * USART Baud Rate Register -> http://www.wormfood.net/avrbaudcalc.php/
-	 * ubrr_value = Fosc/16/baud-1 (round)
-	 */
-	UBRR0L = ubrr_value;
-	UBRR0H = (ubrr_value >> 8);
 
-	/* UCSRnC - n-th USART Control and Status Register C:
-	 * UMSELn1 | UMSELn0 -> 00 for asynchronous mode; 01 for synchronous mode
-	 *   UPMn1 | UPMn0	 -> 00 for non parity mode, 10 for even parity, 11 for odd parity
-	 *			 USBSn	 -> 0 for 1 stop bit, 1 for 2 stop bits
-	 *	UCSZn1 | UCSZn0	 -> 11 for 8-bit char size; 00 for 5-bit; 01 for 6-bit; 10 for 7-bit
-	 *			 UCPOLn	 -> 0 for TX data change on rising XCK edge and RX data change on falling
-	 *			 			1 for TX data change on falling XCK edge and RX data change on rising
-	 */
-	UCSR0C = (0 << UMSEL01) | (0 << UMSEL00) | (0 << UPM01) | (0 << UPM00) | (0 << USBS0) | (1 << UCSZ01) | (1 << UCSZ00) | (0 << UCPOL0);
-	/* UCSRnB - n-th USART Control and Status Register B:
-	 * RXCIEn | TXCIEn -> 11 for receive|transmit completed interrupt enabled
-	 * 			UDRIEn -> 1 for usart data register empty interrupt enabled
-	 * 					  (!) if receiver interrupt enabled one MUST READ the UDR register
-	 * 					  (!) in order to clear the interrupt flag
-	 *  RXENn | TXENn  -> 1 for enabling receiving|transmitting; 0 for disabling
-	 * 		    UCSZn2 -> 1 for 9-bit char size (only with UCSZn1 and UCSZn0 = 11)
-	 *  RXB8n | TXB8n  -> 9-th bits of received|transmitted data if 9-bit char mode used
-	 */
-	UCSR0B = (1 << RXCIE0) | (0 << TXCIE0) | (0 << UDRIE0) | (1 << RXEN0) | (1 << TXEN0) | (0 << UCSZ02) | (0 << RXB80) | (0 << TXB80);
 
-	/* UCSRnA - n-th USART Control and Status Register A:
-	 * UCSRnA: RXCn | TXCn | UDREn | FEn | DORn | UPEn | U2Xn | MPCMn
-	 *
-	 * RXCn  -> receive complete; set to 1 when received data available in UDRn
-	 * TXCn  -> transmission complete; set to 1 when no other data to send
-	 * UDREn -> data register empty; set to 1 when UDRn is empty
-	 * FEn   -> frame error; set to 1 when receive buffer has a frame error; cleared when UDR read
-	 * DORn  -> data over run; set to 1 when receive buffer is full (2 characters); cleared -||-
-	 * UPEn  -> parity error; set to 1 when parity error occurred; cleared when UDR read
-	 * U2Xn  -> double the usart transmission speed
-	 * MPCMn -> multi-processor communication mode
-	 */
-}
-/* void USART0WriteChar(unsigned char data)
-{
-   //Wait until the transmitter is ready
-   while(!(UCSR0A & (1<<UDRE0)))
-   {
-	  //Do nothing
-   }
-   //Now write the data to USART buffer
-   UDR0 = data;
-} */
-volatile unsigned char usart0_received_data;
-volatile unsigned char GPS_RECEIVED_DATA[90];
-volatile unsigned char GPS_RMC_TIME[6];
-volatile unsigned char GPS_RMC_LATITUDE[10];
-volatile unsigned char GPS_RMC_LONGITUDE[11];
-volatile unsigned char GPS_RMC_DATE[6];
-volatile uint8_t gps_array_pointer = 0;
-volatile uint8_t gps_overwrite_allowed = 1;
-volatile uint8_t gps_rmc_valid = 0;
 void LcdShowGPSTime(void)
 {
 	LcdClear();
@@ -636,7 +577,7 @@ void LcdShowMenu(uint16_t menu)
 	case 311:
 		LcdClear();
 		LcdCursorOff();
-		if (gps_rmc_valid == 1)
+		if (gps_rmc_valid == TRUE)
 			LcdShowGPSTime();
 		else
 			LcdPutTextP(txt_gps_data_invalid, 0, 0);
@@ -652,7 +593,7 @@ void LcdShowMenu(uint16_t menu)
 	case 321:
 		LcdClear();
 		LcdCursorOff();
-		if (gps_rmc_valid == 1)
+		if (gps_rmc_valid == TRUE)
 			LcdShowGPSPosition();
 		else
 			LcdPutTextP(txt_gps_data_invalid, 0, 0);
@@ -769,6 +710,7 @@ volatile uint8_t alarm_1st_grade = 0;
 volatile uint8_t alarm_2nd_grade = 0;
 volatile uint8_t alarm_sent = 0;
 volatile unsigned char prevkeys = 0x0F;
+
 
 void Key0Pressed(void)
 {
@@ -1158,16 +1100,21 @@ void KeysHandle(void)
 	}
 }
 
+
 int main(void)
 {
-	Key1Released();
+
 	DDRA = 0x00;
 	PORTA |= 0xF0;
 	DDRD &= ~_BV(5);
 	PORTD |= _BV(5);
 	DDRD |= _BV(6);
+
+	// Allow interrupts
 	sei();
-	USART0Init(0x0047);
+	
+	InitGps();
+
 	USART1Init(0x0005);
 	AdcInit();
 	LcdInit();
@@ -1186,6 +1133,7 @@ int main(void)
 	NORM_MV_VALUES[2] = CURRENT_MV_VALUES[2];
 	adc_finished = 0;
 	LcdTimerInit();
+
 	while (1)
 	{
 		KeysHandle();
@@ -1213,34 +1161,20 @@ int main(void)
 		{
 			CURRENT_MG_VALUES[2] = TEMP_MG_VALUES[2];
 		}
-		if (gps_overwrite_allowed == 0)
+
+
+		// Cyclic check of GPS data		
+		gps_rmc_valid = CheckGps();
+		if (gps_rmc_valid == TRUE)
 		{
-			if (GPS_RECEIVED_DATA[18] == 'A')
-			{
-				gps_rmc_valid = 1;
-				for (uint8_t i = 7; i < 13; i++)
-					GPS_RMC_TIME[i - 7] = GPS_RECEIVED_DATA[i];
-				for (uint8_t i = 20; i < 29; i++)
-					GPS_RMC_LATITUDE[i - 20] = GPS_RECEIVED_DATA[i];
-				GPS_RMC_LATITUDE[9] = GPS_RECEIVED_DATA[30];
-				for (uint8_t i = 32; i < 42; i++)
-					GPS_RMC_LONGITUDE[i - 32] = GPS_RECEIVED_DATA[i];
-				GPS_RMC_LONGITUDE[10] = GPS_RECEIVED_DATA[43];
-				if (GPS_RECEIVED_DATA[55] == ',')
-				{
-					for (uint8_t i = 56; i < 62; i++)
-						GPS_RMC_DATE[i - 56] = GPS_RECEIVED_DATA[i];
-				}
-				else if (GPS_RECEIVED_DATA[56] == ',')
-				{
-					for (uint8_t i = 57; i < 63; i++)
-						GPS_RMC_DATE[i - 57] = GPS_RECEIVED_DATA[i];
-				}
-			}
-			else
-				gps_rmc_valid = 0;
-			gps_overwrite_allowed = 1;
+			GetGpsTime(GPS_RMC_TIME);
+			GetGpsDate(GPS_RMC_DATE);
+			GetGpsLatitude(GPS_RMC_LATITUDE);
+			GetGpsLongitude(GPS_RMC_LONGITUDE);
 		}
+
+
+
 		if ((alarm_2nd_grade == 1) && (alarm_sent == 0))
 		{
 			SendSMS(alarm);
@@ -1354,17 +1288,6 @@ ISR(TIMER2_OVF_vect)
 	}
 }
 
-ISR(USART0_RX_vect)
-{
-	usart0_received_data = UDR0;
-	if (gps_overwrite_allowed == 1)
-	{
-		if (usart0_received_data == '$')
-			gps_array_pointer = 0;
-		else
-			gps_array_pointer++;
-		GPS_RECEIVED_DATA[gps_array_pointer] = usart0_received_data;
-		if (usart0_received_data == '*' && GPS_RECEIVED_DATA[3] == 'R' && GPS_RECEIVED_DATA[4] == 'M' && GPS_RECEIVED_DATA[5] == 'C')
-			gps_overwrite_allowed = 0;
-	}
-}
+
+
+
