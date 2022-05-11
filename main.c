@@ -23,22 +23,23 @@
 
 #include <buttons.h>
 #include <gps.h>
+#include <adc.h>
 
 
-// -------------- GPS --------------
+// --------------------- GPS ---------------------
 unsigned char GPS_RMC_TIME[RMC_TIME_LEN];       	// Used in: LcdShowGPSTime
 unsigned char GPS_RMC_DATE[RMC_DATE_LEN];       	// Used in: LcdShowGPSTime
 unsigned char GPS_RMC_LATITUDE[RMC_LATITUDE_LEN];  	// Used in: LcdShowGPSPosition, SendSMS
 unsigned char GPS_RMC_LONGITUDE[RMC_LONGITUDE_LEN]; // Used in: LcdShowGPSPosition, SendSMS
 uint8_t gps_rmc_valid = FALSE;       				// Used in: LcdShowMenu
-// ---------------------------------
+// -----------------------------------------------
 
 
-volatile uint16_t ADC_CURRENT_MV_VALUES[3];
-uint16_t CURRENT_MV_VALUES[3];
-uint16_t NORM_MV_VALUES[3] = {1650, 1650, 1650}; // According to datasheet
-volatile int16_t TEMP_MG_VALUES[3];
-volatile int16_t CURRENT_MG_VALUES[3];
+// ------------- ADC & ACCELEROMETER -------------
+uint16_t CURRENT_MV_VALUES[AXES_NUM];
+uint16_t NORM_MV_VALUES[AXES_NUM] = {1650, 1650, 1650}; // According to datasheet
+volatile int16_t TEMP_MG_VALUES[AXES_NUM];
+volatile int16_t CURRENT_MG_VALUES[AXES_NUM];
 volatile int16_t X_MG_TRIGGER_VALUES[2] = {-100, 100};
 volatile int16_t Y_MG_TRIGGER_VALUES[2] = {-100, 100};
 volatile int16_t Z_MG_TRIGGER_VALUES[2] = {-100, 100};
@@ -46,30 +47,17 @@ volatile int16_t NEW_X_MG_TRIGGER_VALUES[2] = {-100, 100};
 volatile int16_t NEW_Y_MG_TRIGGER_VALUES[2] = {-100, 100};
 volatile int16_t NEW_Z_MG_TRIGGER_VALUES[2] = {-100, 100};
 volatile uint8_t adc_finished = 0;
-volatile uint8_t adc_current_channel = 0;
-volatile uint8_t adc_interrupt_counter = 0;
-volatile uint8_t alarm_delay = 10;
-volatile uint8_t new_alarm_delay = 10;
+
+
+
+volatile uint8_t alarm_delay = 10;					// Change to "old"
+volatile uint8_t new_alarm_delay = 10;				// Remove "new"
 
 char IntToChar(uint8_t integer_digit)
 {
 	return (char)(((uint8_t)'0') + integer_digit);
 }
 
-void AdcInit(void)
-{
-	ADMUX = 0;
-	ADMUX &= ~_BV(REFS1) & ~_BV(REFS0); // Reference voltage from AREF pin
-	ADMUX &= ~_BV(MUX3) & ~_BV(MUX4);	// ADC multiplexer, channel choice
-	ADCSRA = _BV(ADIE) | _BV(ADATE);	// Free running mode; interrupt enabled
-	ADCSRA |= _BV(ADEN);				// ADC enabled
-	ADCSRA |= _BV(ADPS0) | _BV(ADPS1) | _BV(ADPS2);
-	// ADC sampling prescaler ATmega8 Datasheet p.208
-	// x = ADPS2|ADPS1|ADPS0 -> 2^x (exception: 000 -> 2)
-	// ADMUX |= _BV(ADLAR);					// ADC Left Adjust Result: 8 MSB of 10 measured -> ADCH
-	ADCSRA |= _BV(ADSC); // Free running mode, but needed to first convertion
-	DIDR0 = 0x0F;		 // Digital Input Disable Register - PA0-PA4 DI Disabled
-}
 
 void SetOrigin(void)
 {
@@ -237,8 +225,6 @@ void LcdShowMeasurement(uint8_t unit, uint8_t fractional_digits)
 		break;
 	}
 }
-
-
 
 void LcdShowGPSTime(void)
 {
@@ -1113,25 +1099,31 @@ int main(void)
 	// Allow interrupts
 	sei();
 	
+	// Init hardware
 	InitGps();
+	InitAdc();
 
-	USART1Init(0x0005);
-	AdcInit();
+	USART1Init(0x0005);	// GSM
+
 	LcdInit();
 	LcdPutTextP(txt_hello_line0, 3, 0);
 	LcdPutTextP(txt_hello_line1, 1, 1);
 	_delay_ms(1000);
+	
+	// ------------- ADC INIT -------------
 	while (adc_finished == 0)
 	{
 		// wait for first full measurement
 	}
-	CURRENT_MV_VALUES[0] = (uint32_t)ADC_CURRENT_MV_VALUES[0] * VREF / 1024;
-	CURRENT_MV_VALUES[1] = (uint32_t)ADC_CURRENT_MV_VALUES[1] * VREF / 1024;
-	CURRENT_MV_VALUES[2] = (uint32_t)ADC_CURRENT_MV_VALUES[2] * VREF / 1024;
+	
+	GetAdcMvValues(CURRENT_MV_VALUES);
+
 	NORM_MV_VALUES[0] = CURRENT_MV_VALUES[0];
 	NORM_MV_VALUES[1] = CURRENT_MV_VALUES[1];
 	NORM_MV_VALUES[2] = CURRENT_MV_VALUES[2];
 	adc_finished = 0;
+	// ------------------------------------
+
 	LcdTimerInit();
 
 	while (1)
@@ -1140,9 +1132,8 @@ int main(void)
 		if (adc_finished == 1)
 		{
 			cli();
-			CURRENT_MV_VALUES[0] = (uint32_t)ADC_CURRENT_MV_VALUES[0] * VREF / 1024;
-			CURRENT_MV_VALUES[1] = (uint32_t)ADC_CURRENT_MV_VALUES[1] * VREF / 1024;
-			CURRENT_MV_VALUES[2] = (uint32_t)ADC_CURRENT_MV_VALUES[2] * VREF / 1024;
+			GetAdcMvValues(CURRENT_MV_VALUES);
+
 			TEMP_MG_VALUES[0] = ((int16_t)CURRENT_MV_VALUES[0] - (int16_t)NORM_MV_VALUES[0]) * 10 / 8;
 			TEMP_MG_VALUES[1] = ((int16_t)CURRENT_MV_VALUES[1] - (int16_t)NORM_MV_VALUES[1]) * 10 / 8;
 			TEMP_MG_VALUES[2] = ((int16_t)CURRENT_MV_VALUES[2] - (int16_t)NORM_MV_VALUES[2]) * 10 / 8;
@@ -1226,44 +1217,7 @@ int main(void)
 	}
 }
 
-ISR(ADC_vect)
-{
-	// Interrupt occurs 11059200/128 = 86400 times per second
-	// Interrupt counter reduce measurement by 25 so it goes 3456 times per second (1152 for each channel)
-	uint16_t adc_reading = ADC;
-	adc_interrupt_counter++;
-	adc_interrupt_counter %= 25;
-	if (adc_interrupt_counter == 0)
-	{
-		if (adc_finished == 1)
-		{
-			return;
-		}
-		else
-		{
-			ADC_CURRENT_MV_VALUES[adc_current_channel] = adc_reading;
-			switch (adc_current_channel)
-			{
-			case 0:
-				// Next measurement on channel 1
-				ADMUX = 0b00000001;
-				adc_current_channel = 1;
-				break;
-			case 1:
-				// Next measurement on channel 2
-				ADMUX = 0b00000010;
-				adc_current_channel = 2;
-				break;
-			case 2:
-				// Next measurement on channel 0; all channels complete
-				ADMUX = 0b00000000;
-				adc_current_channel = 0;
-				adc_finished = 1;
-				break;
-			}
-		}
-	}
-}
+
 
 ISR(TIMER2_OVF_vect)
 {

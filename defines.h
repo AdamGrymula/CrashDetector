@@ -19,6 +19,9 @@
 #define RMC_LATITUDE_LEN 10
 #define RMC_LONGITUDE_LEN 11
 
+// Accelerometer
+#define AXES_NUM 3
+
 // ... Buttons configuration ...
 #define KEYPORT PINA >> 4
 

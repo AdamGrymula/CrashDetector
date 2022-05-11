@@ -86,7 +86,8 @@ SRC =        \
 main.c       \
 hd44780.c    \
 buttons.c    \
-gps.c
+gps.c		 \
+adc.c
 
 
 # List C++ source files here. (C dependencies are automatically generated.)
