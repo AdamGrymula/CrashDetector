@@ -1,9 +1,9 @@
 // Prevents multiple inclusion
-
 #ifndef DEFINES_H
 #define DEFINES_H
 
 #include "defines_lcd.h"
+
 
 // General
 #define TRUE 1
@@ -12,7 +12,7 @@
 // Reference voltage in mV
 #define VREF 3240
 
-// Define lengths of GPS data
+// Lengths of GPS data
 #define GPS_DATA_LEN 90
 #define RMC_TIME_LEN 6
 #define RMC_DATE_LEN 6
@@ -25,7 +25,7 @@
 // ... Buttons configuration ...
 #define KEYPORT PINA >> 4
 
-// Definitions of texts for LCD
+// Texts for LCD
 #define txt_hello_line0 "MOTORBIKE"
 #define txt_hello_line1 "CRASH DETECTOR"
 #define txt_run_detector "Run Detector"

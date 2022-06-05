@@ -60,7 +60,7 @@ void USART0WriteChar(unsigned char data)
    //Now write the data to USART buffer
    UDR0 = data;
 }
-void InitGps(void)
+void GpsInit(void)
 {
     USART0Init(0x0047);
 }
@@ -120,47 +120,6 @@ void GetGpsLongitude(unsigned char ARRAY[])
 		ARRAY[RMC_LONGITUDE_LEN-1] = GPS_RECEIVED_DATA[43];
 	}
 }
-
-
-/* unsigned char GPS_RMC_TIME[6];
-unsigned char GPS_RMC_DATE[6];
-unsigned char GPS_RMC_LATITUDE[10];
-unsigned char GPS_RMC_LONGITUDE[11];
-
-void TempFunctionGpsHandle(void)
-{
-		if (gps_overwrite_allowed == FALSE)
-		{
-			if (GPS_RECEIVED_DATA[18] == 'A')
-			{
-				gps_rmc_valid = TRUE;
-				for (uint8_t i = 7; i < 13; i++)
-					GPS_RMC_TIME[i - 7] = GPS_RECEIVED_DATA[i];
-				for (uint8_t i = 20; i < 29; i++)
-					GPS_RMC_LATITUDE[i - 20] = GPS_RECEIVED_DATA[i];
-					GPS_RMC_LATITUDE[9] = GPS_RECEIVED_DATA[30];
-				for (uint8_t i = 32; i < 42; i++)
-					GPS_RMC_LONGITUDE[i - 32] = GPS_RECEIVED_DATA[i];
-					GPS_RMC_LONGITUDE[10] = GPS_RECEIVED_DATA[43];
-				if (GPS_RECEIVED_DATA[55] == ',')
-				{
-					for (uint8_t i = 56; i < 62; i++)
-						GPS_RMC_DATE[i - 56] = GPS_RECEIVED_DATA[i];
-				}
-				else if (GPS_RECEIVED_DATA[56] == ',')
-				{
-					for (uint8_t i = 57; i < 63; i++)
-						GPS_RMC_DATE[i - 57] = GPS_RECEIVED_DATA[i];
-				}
-			}
-			else
-			{
-				gps_rmc_valid = FALSE;
-				gps_overwrite_allowed = TRUE;
-			}
-		}
-} */
-
 
 // Interrupt handler when data is received at USART0
 ISR(USART0_RX_vect)

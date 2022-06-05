@@ -25,7 +25,6 @@
 #include <gps.h>
 #include <adc.h>
 
-
 // --------------------- GPS ---------------------
 unsigned char GPS_RMC_TIME[RMC_TIME_LEN];       	// Used in: LcdShowGPSTime
 unsigned char GPS_RMC_DATE[RMC_DATE_LEN];       	// Used in: LcdShowGPSTime
@@ -35,8 +34,10 @@ uint8_t gps_rmc_valid = FALSE;       				// Used in: LcdShowMenu
 // -----------------------------------------------
 
 
+
 // ------------- ADC & ACCELEROMETER -------------
 uint16_t CURRENT_MV_VALUES[AXES_NUM];
+
 uint16_t NORM_MV_VALUES[AXES_NUM] = {1650, 1650, 1650}; // According to datasheet
 volatile int16_t TEMP_MG_VALUES[AXES_NUM];
 volatile int16_t CURRENT_MG_VALUES[AXES_NUM];
@@ -46,18 +47,17 @@ volatile int16_t Z_MG_TRIGGER_VALUES[2] = {-100, 100};
 volatile int16_t NEW_X_MG_TRIGGER_VALUES[2] = {-100, 100};
 volatile int16_t NEW_Y_MG_TRIGGER_VALUES[2] = {-100, 100};
 volatile int16_t NEW_Z_MG_TRIGGER_VALUES[2] = {-100, 100};
-volatile uint8_t adc_finished = 0;
+volatile uint8_t adc_finished = FALSE;
+// -----------------------------------------------
 
 
-
-volatile uint8_t alarm_delay = 10;					// Change to "old"
-volatile uint8_t new_alarm_delay = 10;				// Remove "new"
+volatile uint8_t alarm_delay_old = 10;
+volatile uint8_t alarm_delay = 10;
 
 char IntToChar(uint8_t integer_digit)
 {
 	return (char)(((uint8_t)'0') + integer_digit);
 }
-
 
 void SetOrigin(void)
 {
@@ -65,21 +65,6 @@ void SetOrigin(void)
 	memcpy(NORM_MV_VALUES, CURRENT_MV_VALUES, 6);
 }
 
-void LcdClear(void)
-{
-	hd44780_outcmd(HD44780_CLR);
-	hd44780_wait_ready(1);
-}
-void LcdInit(void)
-{
-	hd44780_init();
-	hd44780_outcmd(HD44780_CLR);
-	hd44780_wait_ready(1);
-	hd44780_outcmd(HD44780_ENTMODE(1, 0));
-	hd44780_wait_ready(1);
-	hd44780_outcmd(HD44780_DISPCTL(1, 0, 0));
-	hd44780_wait_ready(1);
-}
 void LcdTimerInit(void)
 {
 	/* TIMER2: CS22, CS21, CS20 - DIFFERENT THAN IN TIMER0! ATmega164 datasheet p.156
@@ -195,6 +180,29 @@ void LcdPutFixedPoint(int16_t mili_value, uint8_t fractional_digits)
 		break;
 	}
 }
+
+void LcdClear(void)
+{
+	hd44780_outcmd(HD44780_CLR);
+	hd44780_wait_ready(1);
+}
+void LcdInit(void)
+{
+	// Hardware initialization
+	hd44780_init();
+	hd44780_outcmd(HD44780_CLR);
+	hd44780_wait_ready(1);
+	hd44780_outcmd(HD44780_ENTMODE(1, 0));
+	hd44780_wait_ready(1);
+	hd44780_outcmd(HD44780_DISPCTL(1, 0, 0));
+	hd44780_wait_ready(1);
+
+	// Welcome text for 1s
+	LcdPutTextP(txt_hello_line0, 3, 0);
+	LcdPutTextP(txt_hello_line1, 1, 1);
+	_delay_ms(1000);
+}
+
 
 enum unit
 {
@@ -535,12 +543,12 @@ void LcdShowMenu(uint16_t menu)
 		break;
 	case 241:
 		LcdClear();
-		if (new_alarm_delay / 100 > 0)
-			LcdPutChar(IntToChar(new_alarm_delay / 100));
+		if (alarm_delay / 100 > 0)
+			LcdPutChar(IntToChar(alarm_delay / 100));
 		else
 			LcdGoTo(1, 0);
-		LcdPutChar(IntToChar((new_alarm_delay / 10) % 10));
-		LcdPutChar(IntToChar(new_alarm_delay % 10));
+		LcdPutChar(IntToChar((alarm_delay / 10) % 10));
+		LcdPutChar(IntToChar(alarm_delay % 10));
 		LcdPutTextP(PSTR(" s"), 3, 0);
 		LcdCursorOn(2, 0);
 		break;
@@ -702,7 +710,7 @@ void Key0Pressed(void)
 {
 	if (menu_position == 110)
 	{
-		new_alarm_delay = alarm_delay;
+		alarm_delay = alarm_delay_old;
 		menu_position = 100;
 	}
 	else if (menu_position == 210 || menu_position == 220 || menu_position == 230 || menu_position == 240)
@@ -724,7 +732,7 @@ void Key0Pressed(void)
 	else if (menu_position == 241)
 	{
 		menu_position--;
-		new_alarm_delay = alarm_delay;
+		alarm_delay = alarm_delay_old;
 	}
 	else if (menu_position == 411)
 	{
@@ -789,8 +797,8 @@ void Key1Pressed(void)
 		menu_position = 230;
 		break;
 	case 241:
-		if (new_alarm_delay < 240)
-			new_alarm_delay += 5;
+		if (alarm_delay < 240)
+			alarm_delay += 5;
 		break;
 	case 300:
 		menu_position = 200;
@@ -887,8 +895,8 @@ void Key2Pressed(void)
 			NEW_Z_MG_TRIGGER_VALUES[1] -= 10;
 		break;
 	case 241:
-		if (new_alarm_delay >= 5)
-			new_alarm_delay -= 5;
+		if (alarm_delay >= 5)
+			alarm_delay -= 5;
 		break;
 	case 300:
 		menu_position = 400;
@@ -989,7 +997,7 @@ void Key3Pressed(void)
 	else if (menu_position == 241)
 	{
 		menu_position = 240;
-		alarm_delay = new_alarm_delay;
+		alarm_delay_old = alarm_delay;
 	}
 	else if (menu_position == 419)
 	{
@@ -1022,7 +1030,7 @@ void KeyCancellPressed(void)
 	alarm_1st_grade = 0;
 	alarm_2nd_grade = 0;
 	alarm_sent = 0;
-	new_alarm_delay = alarm_delay;
+	alarm_delay = alarm_delay_old;
 }
 void ReadKeys(void)
 {
@@ -1089,7 +1097,7 @@ void KeysHandle(void)
 
 int main(void)
 {
-
+	// Init physical ports
 	DDRA = 0x00;
 	PORTA |= 0xF0;
 	DDRD &= ~_BV(5);
@@ -1100,31 +1108,17 @@ int main(void)
 	sei();
 	
 	// Init hardware
-	InitGps();
-	InitAdc();
-
-	USART1Init(0x0005);	// GSM
-
+	GpsInit();
+	AdcInit();
+	USART1Init(0x0005);			// GSM
 	LcdInit();
-	LcdPutTextP(txt_hello_line0, 3, 0);
-	LcdPutTextP(txt_hello_line1, 1, 1);
-	_delay_ms(1000);
-	
-	// ------------- ADC INIT -------------
-	while (adc_finished == 0)
-	{
-		// wait for first full measurement
-	}
-	
+
+	// Init other stuff
 	GetAdcMvValues(CURRENT_MV_VALUES);
-
-	NORM_MV_VALUES[0] = CURRENT_MV_VALUES[0];
-	NORM_MV_VALUES[1] = CURRENT_MV_VALUES[1];
-	NORM_MV_VALUES[2] = CURRENT_MV_VALUES[2];
+	SetOrigin();
 	adc_finished = 0;
-	// ------------------------------------
-
 	LcdTimerInit();
+
 
 	while (1)
 	{
@@ -1140,15 +1134,17 @@ int main(void)
 			sei();
 			adc_finished = 0;
 		}
-		if (((TEMP_MG_VALUES[0] - CURRENT_MG_VALUES[0]) < 100) || ((CURRENT_MG_VALUES[0] - TEMP_MG_VALUES[0]) < 100))
+
+		// Overwritting current values with new ones only if difference is big enough
+		if (((TEMP_MG_VALUES[0] - CURRENT_MG_VALUES[0]) < 100) || ((TEMP_MG_VALUES[0] - CURRENT_MG_VALUES[0]) > 100))
 		{
 			CURRENT_MG_VALUES[0] = TEMP_MG_VALUES[0];
 		}
-		if (((TEMP_MG_VALUES[1] - CURRENT_MG_VALUES[1]) < 100) || ((CURRENT_MG_VALUES[1] - TEMP_MG_VALUES[1]) < 100))
+		if (((TEMP_MG_VALUES[1] - CURRENT_MG_VALUES[1]) < 100) || ((TEMP_MG_VALUES[1] - CURRENT_MG_VALUES[1]) > 100))
 		{
 			CURRENT_MG_VALUES[1] = TEMP_MG_VALUES[1];
 		}
-		if (((TEMP_MG_VALUES[2] - CURRENT_MG_VALUES[2]) < 100) || ((CURRENT_MG_VALUES[2] - TEMP_MG_VALUES[2]) < 100))
+		if (((TEMP_MG_VALUES[2] - CURRENT_MG_VALUES[2]) < 100) || ((TEMP_MG_VALUES[2] - CURRENT_MG_VALUES[2]) > 100))
 		{
 			CURRENT_MG_VALUES[2] = TEMP_MG_VALUES[2];
 		}
@@ -1165,17 +1161,18 @@ int main(void)
 		}
 
 
-
 		if ((alarm_2nd_grade == 1) && (alarm_sent == 0))
 		{
 			SendSMS(alarm);
 			alarm_sent = 1;
 		}
+
+		// Detection mode
 		if (menu_position == 110)
 		{
 			if (((CURRENT_MG_VALUES[0] < NEW_X_MG_TRIGGER_VALUES[0]) && (CURRENT_MG_VALUES[0] > -3000)) || ((CURRENT_MG_VALUES[0] > NEW_X_MG_TRIGGER_VALUES[1]) && (CURRENT_MG_VALUES[0] < 3000)) || ((CURRENT_MG_VALUES[1] < NEW_Y_MG_TRIGGER_VALUES[0]) && (CURRENT_MG_VALUES[1] > -3000)) || ((CURRENT_MG_VALUES[1] > NEW_Y_MG_TRIGGER_VALUES[1]) && (CURRENT_MG_VALUES[1] < 3000)) || ((CURRENT_MG_VALUES[2] < NEW_Z_MG_TRIGGER_VALUES[0]) && (CURRENT_MG_VALUES[2] > -3000)) || ((CURRENT_MG_VALUES[2] > NEW_Z_MG_TRIGGER_VALUES[1]) && (CURRENT_MG_VALUES[2] < 3000)))
 				alarm_1st_grade = 1;
-			if ((alarm_1st_grade == 1) && (new_alarm_delay == 0))
+			if ((alarm_1st_grade == 1) && (alarm_delay == 0))
 			{
 				alarm_2nd_grade = 1;
 				alarm_1st_grade = 0;
@@ -1187,6 +1184,8 @@ int main(void)
 			alarm_2nd_grade = 0;
 			alarm_sent = 0;
 		}
+
+		// Calibration mode
 		if (menu_position == 221)
 		{
 			if ((CURRENT_MG_VALUES[0] < NEW_X_MG_TRIGGER_VALUES[0]) && (CURRENT_MG_VALUES[0] > -3000))
@@ -1237,8 +1236,8 @@ ISR(TIMER2_OVF_vect)
 	}
 	if (timer2_ovf_counter == 0)
 	{
-		if ((alarm_1st_grade == 1) && (new_alarm_delay != 0))
-			new_alarm_delay--;
+		if ((alarm_1st_grade == 1) && (alarm_delay != 0))
+			alarm_delay--;
 	}
 }
 
